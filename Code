@@ -1,1 +1,401 @@
-a
+import tkinter as tk
+from tkinter import ttk, filedialog, colorchooser, messagebox
+import json
+import os
+
+# Configuración inicial por defecto
+default_config = {
+    "nombre_usuario": "Usuario",
+    "tema_interfaz": "claro",
+    "idioma": "es",
+    "tamaño_fuente": 12,
+    "color_barra_menu": "#FFFFFF",  # Blanco por defecto
+    "color_letra": "#000000",       # Negro por defecto
+    "foto_perfil": ""
+}
+
+# Función para cargar configuración
+def cargar_config():
+    if os.path.exists("config.json"):
+        with open("config.json", "r") as file:
+            return json.load(file)
+    return default_config
+
+# Función para guardar configuración
+def guardar_config(config):
+    with open("config.json", "w") as file:
+        json.dump(config, file, indent=4)
+
+# Función para aplicar tema y colores de manera más completa
+def aplicar_tema_y_colores(ventana, menubar, tema, color_barra, color_letra, tamaño_fuente):
+    # Definir colores según el tema
+    if tema == "claro":
+        bg_color = "#FFFFFF"
+        fg_color = "#000000"
+        menu_bg = "#F0F0F0"
+    elif tema == "oscuro":
+        bg_color = "#2C2C2C"
+        fg_color = "#FFFFFF"
+        menu_bg = "#3C3C3C"
+    elif tema == "gris plateado":
+        bg_color = "#C0C0C0"
+        fg_color = "#000000"
+        menu_bg = "#D0D0D0"
+    elif tema == "violeta":
+        bg_color = "#800080"
+        fg_color = "#FFFFFF"
+        menu_bg = "#A000A0"
+    else:
+        bg_color = ventana.cget("bg")
+        fg_color = "#000000"
+        menu_bg = "#F0F0F0"
+    
+    # Aplicar colores a la ventana principal
+    ventana.configure(bg=bg_color)
+    
+    # Aplicar colores a la barra de menú
+    if menubar:
+        menubar.configure(bg=color_barra, fg=color_letra)
+    
+    # Aplicar estilo a los widgets ttk
+    style = ttk.Style()
+    style.configure("TFrame", background=bg_color)
+    style.configure("TLabel", background=bg_color, foreground=fg_color, font=("Arial", tamaño_fuente))
+    style.configure("TButton", background=menu_bg, foreground=fg_color, font=("Arial", tamaño_fuente))
+    style.configure("TEntry", fieldbackground=bg_color, foreground=fg_color, font=("Arial", tamaño_fuente))
+    style.configure("TCombobox", fieldbackground=bg_color, foreground=fg_color, font=("Arial", tamaño_fuente))
+    
+    return bg_color, fg_color
+
+# Clase principal de la aplicación
+class Aplicacion:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Aplicación de Escritorio")
+        self.root.geometry("800x600")
+        
+        # Cargar configuración
+        self.config = cargar_config()
+        
+        # Crear menú principal
+        self.menubar = tk.Menu(self.root, bg=self.config["color_barra_menu"], fg=self.config["color_letra"])
+        self.root.config(menu=self.menubar)
+        
+        # Aplicar configuración inicial
+        self.bg_color, self.fg_color = aplicar_tema_y_colores(
+            self.root, self.menubar, self.config["tema_interfaz"], 
+            self.config["color_barra_menu"], self.config["color_letra"], 
+            self.config["tamaño_fuente"]
+        )
+        
+        # Crear submenús
+        self.crear_menu()
+        
+        # Crear marco principal
+        self.main_frame = ttk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Contenido principal
+        self.crear_interfaz_principal()
+        
+        # Actualizar la interfaz
+        self.actualizar_interfaz()
+
+    def crear_menu(self):
+        # Menú Archivo
+        archivo_menu = tk.Menu(self.menubar, tearoff=0, bg=self.config["color_barra_menu"], fg=self.config["color_letra"])
+        self.menubar.add_cascade(label="Archivo", menu=archivo_menu)
+        archivo_menu.add_command(label="Abrir", command=self.abrir_archivo)
+        archivo_menu.add_command(label="Guardar", command=self.guardar_archivo)
+        archivo_menu.add_separator()
+        archivo_menu.add_command(label="Salir", command=self.root.quit)
+        
+        # Menú Edición
+        edicion_menu = tk.Menu(self.menubar, tearoff=0, bg=self.config["color_barra_menu"], fg=self.config["color_letra"])
+        self.menubar.add_cascade(label="Edición", menu=edicion_menu)
+        edicion_menu.add_command(label="Copiar", command=self.copiar)
+        edicion_menu.add_command(label="Pegar", command=self.pegar)
+        
+        # Menú Ver
+        ver_menu = tk.Menu(self.menubar, tearoff=0, bg=self.config["color_barra_menu"], fg=self.config["color_letra"])
+        self.menubar.add_cascade(label="Ver", menu=ver_menu)
+        ver_menu.add_command(label="Zoom In", command=self.zoom_in)
+        ver_menu.add_command(label="Zoom Out", command=self.zoom_out)
+        
+        # Menú Configuración
+        self.menubar.add_command(label="Configuración", command=self.abrir_settings)
+
+    def crear_interfaz_principal(self):
+        # Etiqueta de bienvenida
+        self.label_principal = ttk.Label(self.main_frame, text="Bienvenido, " + self.config["nombre_usuario"])
+        self.label_principal.pack(pady=20)
+        
+        # Marco para la foto de perfil
+        self.foto_frame = ttk.Frame(self.main_frame)
+        self.foto_frame.pack(pady=10)
+        
+        # Mostrar foto de perfil si existe
+        if self.config["foto_perfil"] and os.path.exists(self.config["foto_perfil"]):
+            self.mostrar_foto_perfil()
+        else:
+            self.label_foto = ttk.Label(self.foto_frame, text="Sin foto de perfil")
+            self.label_foto.pack()
+        
+        # Área de contenido editable
+        self.text_area = tk.Text(self.main_frame, height=15, width=70, 
+                                bg=self.bg_color, fg=self.fg_color,
+                                font=("Arial", self.config["tamaño_fuente"]))
+        self.text_area.pack(pady=20, fill=tk.BOTH, expand=True)
+        
+        # Barra de desplazamiento
+        scrollbar = ttk.Scrollbar(self.text_area)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.text_area.config(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=self.text_area.yview)
+
+    def mostrar_foto_perfil(self):
+        try:
+            from PIL import ImageTk, Image
+            img = Image.open(self.config["foto_perfil"])
+            img = img.resize((100, 100), Image.Resampling.LANCZOS)
+            self.photo = ImageTk.PhotoImage(img)
+            if hasattr(self, 'label_foto'):
+                self.label_foto.config(image=self.photo)
+            else:
+                self.label_foto = ttk.Label(self.foto_frame, image=self.photo)
+                self.label_foto.image = self.photo  # mantener una referencia
+                self.label_foto.pack()
+        except ImportError:
+            messagebox.showwarning("Advertencia", "PIL no instalado. No se puede mostrar la foto.")
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo cargar la foto: {e}")
+
+    def actualizar_interfaz(self):
+        # Actualizar colores y fuentes
+        self.bg_color, self.fg_color = aplicar_tema_y_colores(
+            self.root, self.menubar, self.config["tema_interfaz"], 
+            self.config["color_barra_menu"], self.config["color_letra"], 
+            self.config["tamaño_fuente"]
+        )
+        
+        # Actualizar etiqueta principal
+        self.label_principal.config(text="Bienvenido, " + self.config["nombre_usuario"])
+        
+        # Actualizar área de texto
+        self.text_area.config(bg=self.bg_color, fg=self.fg_color,
+                             font=("Arial", self.config["tamaño_fuente"]))
+        
+        # Actualizar foto de perfil
+        if hasattr(self, 'foto_frame'):
+            for widget in self.foto_frame.winfo_children():
+                widget.destroy()
+                
+            if self.config["foto_perfil"] and os.path.exists(self.config["foto_perfil"]):
+                self.mostrar_foto_perfil()
+            else:
+                self.label_foto = ttk.Label(self.foto_frame, text="Sin foto de perfil")
+                self.label_foto.pack()
+
+    # Funciones de menú
+    def abrir_archivo(self):
+        file_path = filedialog.askopenfilename(
+            title="Abrir archivo",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
+        )
+        if file_path:
+            try:
+                with open(file_path, 'r') as file:
+                    content = file.read()
+                    self.text_area.delete(1.0, tk.END)
+                    self.text_area.insert(1.0, content)
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo abrir el archivo: {e}")
+
+    def guardar_archivo(self):
+        file_path = filedialog.asksaveasfilename(
+            title="Guardar archivo",
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
+        )
+        if file_path:
+            try:
+                with open(file_path, 'w') as file:
+                    content = self.text_area.get(1.0, tk.END)
+                    file.write(content)
+                messagebox.showinfo("Éxito", "Archivo guardado correctamente.")
+            except Exception as e:
+                messagebox.showerror("Error", f"No se pudo guardar el archivo: {e}")
+
+    def copiar(self):
+        self.root.clipboard_clear()
+        try:
+            text = self.text_area.get(tk.SEL_FIRST, tk.SEL_LAST)
+            self.root.clipboard_append(text)
+        except tk.TclError:
+            pass  # No text selected
+
+    def pegar(self):
+        try:
+            text = self.root.clipboard_get()
+            self.text_area.insert(tk.INSERT, text)
+        except tk.TclError:
+            pass  # Clipboard is empty
+
+    def zoom_in(self):
+        current_size = self.config["tamaño_fuente"]
+        if current_size < 24:  # Límite máximo
+            self.config["tamaño_fuente"] += 1
+            self.actualizar_interfaz()
+
+    def zoom_out(self):
+        current_size = self.config["tamaño_fuente"]
+        if current_size > 8:  # Límite mínimo
+            self.config["tamaño_fuente"] -= 1
+            self.actualizar_interfaz()
+
+    def abrir_settings(self):
+        settings_window = tk.Toplevel(self.root)
+        settings_window.title("Configuración")
+        settings_window.geometry("500x600")
+        settings_window.transient(self.root)
+        settings_window.grab_set()
+        
+        # Aplicar tema a la ventana de configuración
+        aplicar_tema_y_colores(settings_window, None, self.config["tema_interfaz"], 
+                              self.config["color_barra_menu"], self.config["color_letra"], 
+                              self.config["tamaño_fuente"])
+        
+        # Marco principal para configuración
+        main_frame = ttk.Frame(settings_window)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Nombre de usuario
+        ttk.Label(main_frame, text="Nombre de usuario:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        nombre_entry = ttk.Entry(main_frame)
+        nombre_entry.insert(0, self.config["nombre_usuario"])
+        nombre_entry.grid(row=0, column=1, sticky=tk.EW, pady=5, padx=(10, 0))
+        
+        # Tema de interfaz
+        ttk.Label(main_frame, text="Tema de interfaz:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        tema_combo = ttk.Combobox(main_frame, values=["claro", "oscuro", "gris plateado", "violeta"])
+        tema_combo.set(self.config["tema_interfaz"])
+        tema_combo.grid(row=1, column=1, sticky=tk.EW, pady=5, padx=(10, 0))
+        
+        # Idioma
+        ttk.Label(main_frame, text="Idioma:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        idioma_combo = ttk.Combobox(main_frame, values=["es", "es-ES", "en", "en-US"])
+        idioma_combo.set(self.config["idioma"])
+        idioma_combo.grid(row=2, column=1, sticky=tk.EW, pady=5, padx=(10, 0))
+        
+        # Tamaño de fuente
+        ttk.Label(main_frame, text="Tamaño de fuente:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        fuente_entry = ttk.Entry(main_frame)
+        fuente_entry.insert(0, self.config["tamaño_fuente"])
+        fuente_entry.grid(row=3, column=1, sticky=tk.EW, pady=5, padx=(10, 0))
+        
+        # Color de la barra de menú
+        ttk.Label(main_frame, text="Color de la barra de menú:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        color_barra_frame = ttk.Frame(main_frame)
+        color_barra_frame.grid(row=4, column=1, sticky=tk.EW, pady=5, padx=(10, 0))
+        
+        color_barra_button = ttk.Button(color_barra_frame, text="Seleccionar color", 
+                                      command=lambda: self.seleccionar_color_barra(color_barra_canvas))
+        color_barra_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        color_barra_canvas = tk.Canvas(color_barra_frame, width=30, height=20, 
+                                     bg=self.config["color_barra_menu"], highlightthickness=1)
+        color_barra_canvas.pack(side=tk.LEFT)
+        
+        # Color de letra
+        ttk.Label(main_frame, text="Color de letra:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        color_letra_frame = ttk.Frame(main_frame)
+        color_letra_frame.grid(row=5, column=1, sticky=tk.EW, pady=5, padx=(10, 0))
+        
+        color_letra_button = ttk.Button(color_letra_frame, text="Seleccionar color", 
+                                      command=lambda: self.seleccionar_color_letra(color_letra_canvas))
+        color_letra_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        color_letra_canvas = tk.Canvas(color_letra_frame, width=30, height=20, 
+                                     bg=self.config["color_letra"], highlightthickness=1)
+        color_letra_canvas.pack(side=tk.LEFT)
+        
+        # Foto de perfil
+        ttk.Label(main_frame, text="Foto de perfil:").grid(row=6, column=0, sticky=tk.W, pady=5)
+        foto_frame = ttk.Frame(main_frame)
+        foto_frame.grid(row=6, column=1, sticky=tk.EW, pady=5, padx=(10, 0))
+        
+        foto_button = ttk.Button(foto_frame, text="Seleccionar foto", 
+                               command=lambda: self.seleccionar_foto(foto_label))
+        foto_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        foto_label = ttk.Label(foto_frame, text=os.path.basename(self.config["foto_perfil"]) 
+                             if self.config["foto_perfil"] else "Ninguna seleccionada")
+        foto_label.pack(side=tk.LEFT)
+        
+        # Configurar expansión de columnas
+        main_frame.columnconfigure(1, weight=1)
+        
+        # Botones de acción
+        button_frame = ttk.Frame(main_frame)
+        button_frame.grid(row=7, column=0, columnspan=2, pady=20)
+        
+        ttk.Button(button_frame, text="Guardar", 
+                  command=lambda: self.guardar_settings(
+                      settings_window, nombre_entry.get(), tema_combo.get(), 
+                      idioma_combo.get(), fuente_entry.get(), 
+                      color_barra_canvas.cget("bg"), color_letra_canvas.cget("bg"),
+                      self.config["foto_perfil"]
+                  )).pack(side=tk.LEFT, padx=10)
+        
+        ttk.Button(button_frame, text="Cancelar", 
+                  command=settings_window.destroy).pack(side=tk.LEFT, padx=10)
+        
+        # Hacer que la ventana sea modal
+        settings_window.wait_window(settings_window)
+
+    def seleccionar_color_barra(self, canvas):
+        color = colorchooser.askcolor(title="Seleccionar color de barra de menú", 
+                                     initialcolor=canvas.cget("bg"))[1]
+        if color:
+            canvas.config(bg=color)
+
+    def seleccionar_color_letra(self, canvas):
+        color = colorchooser.askcolor(title="Seleccionar color de letra", 
+                                     initialcolor=canvas.cget("bg"))[1]
+        if color:
+            canvas.config(bg=color)
+
+    def seleccionar_foto(self, label):
+        archivo = filedialog.askopenfilename(
+            title="Seleccionar foto de perfil", 
+            filetypes=[("Imágenes", "*.jpg *.jpeg *.png *.gif *.bmp")]
+        )
+        if archivo:
+            self.config["foto_perfil"] = archivo
+            label.config(text=os.path.basename(archivo))
+
+    def guardar_settings(self, window, nombre, tema, idioma, fuente, color_barra, color_letra, foto):
+        try:
+            # Validar y guardar configuración
+            self.config["nombre_usuario"] = nombre
+            self.config["tema_interfaz"] = tema
+            self.config["idioma"] = idioma
+            self.config["tamaño_fuente"] = int(fuente)
+            self.config["color_barra_menu"] = color_barra
+            self.config["color_letra"] = color_letra
+            self.config["foto_perfil"] = foto
+            
+            guardar_config(self.config)
+            
+            # Aplicar cambios
+            self.actualizar_interfaz()
+            
+            window.destroy()
+            messagebox.showinfo("Éxito", "Configuración guardada y aplicada.")
+        except ValueError:
+            messagebox.showerror("Error", "El tamaño de fuente debe ser un número entero.")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = Aplicacion(root)
+    root.mainloop()
